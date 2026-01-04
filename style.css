@@ -1,3 +1,6 @@
+/* =========================================
+   CORE STYLES & RESET
+   ========================================= */
 html, body {
   width: 100%;
   height: 100%;
@@ -13,7 +16,9 @@ html, body {
   -webkit-tap-highlight-color: transparent; /* mobile tap flash off */
 }
 
-/* --- MOBILE ROTATE LOGIC --- */
+/* =========================================
+   MOBILE ROTATE MESSAGE
+   ========================================= */
 #rotate-message {
   display: none;
   position: absolute;
@@ -27,12 +32,16 @@ html, body {
   text-align: center;
 }
 
+/* Show rotate message only on portrait */
 @media screen and (orientation: portrait) {
   #rotate-message { display: flex; }
   #ui-layer { display: none; }
+  #start-screen { display: none !important; } /* Hide start screen so it doesn't glitch */
 }
 
-/* --- UI LAYER & PANELS --- */
+/* =========================================
+   UI LAYER & HUD PANELS
+   ========================================= */
 #ui-layer {
   position: absolute;
   inset: 0;
@@ -49,6 +58,7 @@ html, body {
   flex-direction: column;
   gap: 8px;
   pointer-events: auto;
+  transform-origin: top left;
 }
 
 #top-right-panel {
@@ -61,8 +71,10 @@ html, body {
   align-items: flex-end;
   gap: 6px;
   pointer-events: auto;
+  transform-origin: top right;
 }
 
+/* RESOURCE COUNTERS */
 .res-group {
   display: flex;
   gap: 12px;
@@ -93,6 +105,7 @@ html, body {
   text-shadow: 0 0 8px rgba(0,210,255,.8);
 }
 
+/* STAT BARS (Health, Hunger, Thirst) */
 #survival-stats {
   display: flex;
   flex-direction: column;
@@ -135,6 +148,7 @@ html, body {
 #hunger-fill { background: #e67e22; }
 #thirst-fill { background: #3498db; }
 
+/* CLOCK & WAVE INFO */
 #clock-display { text-align: right; }
 
 #cycle-label {
@@ -167,6 +181,7 @@ html, body {
   margin-top: 4px;
 }
 
+/* ACTION BUTTONS (Skip, Summon, Advisor) */
 .action-btn {
   border: 1px solid rgba(255,255,255,.25);
   border-radius: 999px;
@@ -198,6 +213,9 @@ html, body {
   100% { box-shadow: 0 0 0 0 rgba(108,92,231,0); }
 }
 
+/* =========================================
+   BOTTOM BUILD MENU
+   ========================================= */
 .menu-container {
   position: absolute;
   /* SAFE AREA FIX: Ensures menu isn't too low on iPhone X+ */
@@ -211,6 +229,7 @@ html, body {
   transition: opacity .3s;
   white-space: nowrap;
   scrollbar-width: none;
+  transform-origin: bottom center;
 }
 
 .menu-container::-webkit-scrollbar { display: none; }
@@ -287,11 +306,14 @@ html, body {
 .label { font-size: 6px; font-weight: 900; text-transform: uppercase; margin-top: 2px; letter-spacing: .5px; }
 .cost { font-size: 6px; color: #f1c40f; }
 
+/* =========================================
+   INSPECTOR PANEL
+   ========================================= */
 #inspector-panel {
   display: none;
   position: absolute;
-  /* LAYOUT FIX: Moved up to 90px so it floats ABOVE the build menu */
-  bottom: 90px;
+  /* LAYOUT FIX: Moved up so it floats ABOVE the build menu */
+  bottom: 85px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(15,15,22,.92);
@@ -308,6 +330,7 @@ html, body {
   backdrop-filter: blur(14px);
   /* Safe area padding just in case */
   margin-bottom: env(safe-area-inset-bottom);
+  transform-origin: bottom center;
 }
 
 #inspector-title {
@@ -355,6 +378,9 @@ html, body {
 .insp-btn.build-action { border-color: rgba(0,210,255,.55); }
 .insp-btn.combat-action { border-color: rgba(255,0,85,.55); }
 
+/* =========================================
+   FX & POPUPS
+   ========================================= */
 #fx-container {
   position: absolute;
   inset: 0;
@@ -401,6 +427,9 @@ html, body {
   box-shadow: 0 0 28px rgba(241,196,15,.35);
 }
 
+/* =========================================
+   START SCREEN (MOBILE OPTIMIZED)
+   ========================================= */
 #start-screen {
   position: absolute;
   inset: 0;
@@ -413,10 +442,15 @@ html, body {
     radial-gradient(900px 600px at 80% 60%, rgba(108,92,231,.16), transparent 55%),
     linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,.92));
   backdrop-filter: blur(12px);
+  padding: 10px; /* Add padding so it doesn't touch screen edges */
 }
 
 .start-panel {
   width: min(920px, 94vw);
+  /* MOBILE SCROLL FIX: */
+  max-height: 90vh; 
+  overflow-y: auto; 
+  
   border-radius: 22px;
   padding: 26px 22px;
   background: rgba(20,20,28,.72);
@@ -426,16 +460,19 @@ html, body {
 
 .game-title {
   font-weight: 1000;
-  font-size: clamp(32px, 5vw, 54px);
+  font-size: clamp(24px, 5vw, 54px); /* Scalable font */
   letter-spacing: 2px;
   color: #fff;
   text-shadow: 0 18px 40px rgba(0,0,0,.8);
+  text-align: center;
 }
 
 .game-subtitle {
   margin-top: 6px;
   color: rgba(255,255,255,.82);
   font-weight: 700;
+  text-align: center;
+  font-size: 0.9rem;
 }
 
 .tutorial-grid {
@@ -475,11 +512,13 @@ html, body {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center; /* Center buttons */
+  margin-bottom: 20px; /* Space at bottom for scrolling */
 }
 
 #btn-start {
   border: none;
-  padding: 12px 18px;
+  padding: 12px 24px;
   border-radius: 999px;
   font-weight: 950;
   background: linear-gradient(90deg, rgba(241,196,15,.95), rgba(255,212,89,.95));
@@ -488,7 +527,7 @@ html, body {
 
 #btn-how {
   border: 1px solid rgba(255,255,255,.2);
-  padding: 12px 18px;
+  padding: 12px 24px;
   border-radius: 999px;
   font-weight: 950;
   background: rgba(0,0,0,.25);
@@ -500,6 +539,7 @@ html, body {
   margin-top: 14px;
   color: rgba(255,255,255,.72);
   font-weight: 700;
+  text-align: center;
 }
 
 #howto-modal {
@@ -511,10 +551,13 @@ html, body {
   align-items: center;
   background: rgba(0,0,0,.75);
   backdrop-filter: blur(10px);
+  padding: 10px;
 }
 
 .howto-panel {
   width: min(720px, 92vw);
+  max-height: 85vh; /* Scrollable how-to */
+  overflow-y: auto;
   border-radius: 20px;
   padding: 20px 18px;
   background: rgba(20,20,28,.85);
@@ -547,32 +590,39 @@ html, body {
   cursor: pointer;
 }
 
-/* --- COMPACT MODE FOR MOBILE LANDSCAPE --- */
-@media screen and (max-height: 500px) and (orientation: landscape) {
-  /* 1. Shrink the top stats & buttons */
-  #top-left-panel, #top-right-panel {
-    transform: scale(0.85);
-    transform-origin: top center; /* Keeps them pinned to the top */
-    width: 110%; /* Compensate for the scale shrinking the width */
-  }
-
-  /* 2. Make the bottom building buttons smaller */
-  .build-btn {
-    width: 42px;
-    height: 42px;
-    min-width: 42px;
-  }
-  .icon { font-size: 14px; } /* Smaller emojis */
+/* =========================================
+   ANDROID / PHONE LANDSCAPE FIXES
+   ========================================= */
+/* Only triggers on screens smaller than 900px wide (Phones) */
+@media screen and (max-width: 900px) {
   
-  /* 3. Lower the inspector so it doesn't block the middle of the screen */
-  #inspector-panel {
-    bottom: 65px; 
-    padding: 8px 16px;
-    transform: translateX(-50%) scale(0.9); /* Shrink it a bit */
+  /* 1. Shrink UI HUD (Stats/Clock) */
+  #top-left-panel, #top-right-panel {
+    transform: scale(0.75);
+    width: 120%; /* Compensate for width loss */
   }
 
-  /* 4. Lower the menu container */
+  /* 2. Shrink Buttons & Menu */
   .menu-container {
+    transform: translateX(-50%) scale(0.85);
     bottom: 5px;
+    width: 100%;
+  }
+  
+  /* 3. Lower Inspector Panel */
+  #inspector-panel {
+    transform: translateX(-50%) scale(0.85);
+    bottom: 60px;
+  }
+  
+  /* 4. Fix Start Screen Overflow */
+  .game-title { font-size: 28px; }
+  .t-body { font-size: 12px; }
+  
+  /* If the screen is VERY short (Landscape phone), hide non-essential text */
+  @media screen and (max-height: 450px) {
+    .tutorial-grid { display: none; } /* Hide tutorials so Start Button is visible */
+    .game-subtitle { display: none; }
+    .start-panel { padding: 15px; }
   }
 }
