@@ -10,6 +10,11 @@
     NIGHT_DURATION: 120,
     WORLD_SIZE: 42,
 
+    // Spawn / safety
+    SPAWN_X: 0,
+    SPAWN_Z: 0,
+    SPAWN_SAFE_RADIUS: 9,
+
     // Worker system
     USE_WORKERS: true,
     workers: [],
@@ -57,9 +62,8 @@
     bossDefeated: false,
 
     // === ZOOM SETTINGS ===
-    // 1.4 = Closer to MC (Mobile), 1.2 = Standard (PC)
-    targetZoom: window.innerWidth < 850 ? 1.4 : 1.2, 
-    lastTouchDist: 0, // For pinch-to-zoom
+    targetZoom: window.innerWidth < 850 ? 2.25 : 1.25,
+    lastTouchDist: 0,
 
     worldBuilt: false,
 
@@ -102,6 +106,12 @@
       return Number.isFinite(v) ? v : fallback;
     },
 
+    isInSpawnSafe(x, z, r = this.SPAWN_SAFE_RADIUS) {
+      const dx = x - this.SPAWN_X;
+      const dz = z - this.SPAWN_Z;
+      return (dx * dx + dz * dz) <= (r * r);
+    },
+
     init() {
       this.scene = new THREE.Scene();
       this.scene.background = new THREE.Color(0x87CEEB);
@@ -111,8 +121,7 @@
       this.camera = new THREE.OrthographicCamera(-14 * aspect, 14 * aspect, 14, -14, 1, 1000);
       this.camera.position.set(20, 20, 20);
       this.camera.lookAt(0, 0, 0);
-      
-      // Apply initial zoom
+
       this.camera.zoom = this.targetZoom;
       this.camera.updateProjectionMatrix();
 
@@ -158,66 +167,60 @@
       this.scene.add(this.cursor);
 
       // --- EVENTS ---
-      // Mouse events
       this.renderer.domElement.addEventListener("pointerdown", e => this.onPointerDown(e));
       this.renderer.domElement.addEventListener("pointermove", e => this.onPointerMove(e));
       this.renderer.domElement.addEventListener("pointerup", e => this.onPointerUp(e));
 
-      // --- PINCH TO ZOOM & TOUCH LOGIC ---
+      // --- TOUCH: Pinch zoom + tap logic ---
       this.renderer.domElement.addEventListener("touchstart", e => {
-          if(e.target === this.renderer.domElement) e.preventDefault();
-          
-          // PINCH START
-          if (e.touches.length === 2) {
-            const dx = e.touches[0].pageX - e.touches[1].pageX;
-            const dy = e.touches[0].pageY - e.touches[1].pageY;
-            this.lastTouchDist = Math.sqrt(dx * dx + dy * dy);
-            return;
-          }
+        if (e.target === this.renderer.domElement) e.preventDefault();
 
-          const touch = e.changedTouches[0];
-          this.isDragging = false;
-          this.lastMouse = { x: touch.clientX, y: touch.clientY };
-          this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-          this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].pageX - e.touches[1].pageX;
+          const dy = e.touches[0].pageY - e.touches[1].pageY;
+          this.lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+          return;
+        }
+
+        const touch = e.changedTouches[0];
+        this.isDragging = false;
+        this.lastMouse = { x: touch.clientX, y: touch.clientY };
+        this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
       }, { passive: false });
 
       this.renderer.domElement.addEventListener("touchmove", e => {
-          if(e.target === this.renderer.domElement) e.preventDefault();
-          
-          // PINCH MOVE (ZOOM)
-          if (e.touches.length === 2) {
-            const dx = e.touches[0].pageX - e.touches[1].pageX;
-            const dy = e.touches[0].pageY - e.touches[1].pageY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            // Calculate change in distance
-            const delta = dist - this.lastTouchDist;
-            
-            // Adjust Zoom (Sensitivity: 0.005)
-            this.targetZoom = clamp(this.targetZoom + delta * 0.005, 0.5, 3.0);
-            
-            this.lastTouchDist = dist;
-            return; 
-          }
+        if (e.target === this.renderer.domElement) e.preventDefault();
 
-          this.isDragging = true;
+        if (e.touches.length === 2) {
+          const dx = e.touches[0].pageX - e.touches[1].pageX;
+          const dy = e.touches[0].pageY - e.touches[1].pageY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          const delta = dist - this.lastTouchDist;
+
+          this.targetZoom = clamp(this.targetZoom + delta * 0.004, 0.85, 4.0);
+
+          this.lastTouchDist = dist;
+          return;
+        }
+
+        this.isDragging = true;
       }, { passive: false });
 
       this.renderer.domElement.addEventListener("touchend", e => {
-          if(e.target === this.renderer.domElement) e.preventDefault();
-          
-          // Ignore pinch lift-off
-          if (e.touches.length > 0) return;
+        if (e.target === this.renderer.domElement) e.preventDefault();
 
-          if (!this.isDragging) {
-              const touch = e.changedTouches[0];
-              this.onClick({
-                  clientX: touch.clientX,
-                  clientY: touch.clientY,
-                  button: 0 
-              });
-          }
+        if (e.touches.length > 0) return;
+
+        if (!this.isDragging) {
+          const touch = e.changedTouches[0];
+          this.onClick({
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            button: 0
+          });
+        }
       }, { passive: false });
 
       // Wheel Zoom (PC)
@@ -242,8 +245,8 @@
         if (!m) return;
         btn.addEventListener("click", () => this.setMode(m));
         btn.addEventListener("touchend", (e) => {
-             e.preventDefault(); 
-             this.setMode(m);
+          e.preventDefault();
+          this.setMode(m);
         });
       });
 
@@ -255,16 +258,16 @@
         this.active = true;
 
         const el = document.documentElement;
-        if(el.requestFullscreen) el.requestFullscreen().catch(()=>{});
-        else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => { });
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 
         this.showStory([
           "…Where am I?",
           "The air is cold. Too quiet.",
-          "There’s a Core nearby… like it’s waiting for me.",
-          "I don’t remember building any of this.",
-          "But I do remember one thing:",
-          "If I don’t survive the nights… I won’t get answers."
+          "Something is out there.",
+          "And I’m the target.",
+          "If I don’t survive the nights…",
+          "I won’t get answers."
         ], "PROLOGUE");
       };
 
@@ -416,10 +419,8 @@
       this.generateWaterPuddles();
       this.scatterInitialResources();
 
-      // Auto place core near center if player hasn't placed it
-      if (!this.coreTile) {
-        this.createBuilding(0, 0, "core");
-      }
+      // ✅ NO AUTO CORE / NO AUTO BASE
+      // Player is the objective.
     },
 
     generateWaterPuddles() {
@@ -430,13 +431,15 @@
         let cx = randInt(-this.WORLD_SIZE / 2 + 6, this.WORLD_SIZE / 2 - 6);
         let cz = randInt(-this.WORLD_SIZE / 2 + 6, this.WORLD_SIZE / 2 - 6);
 
-        if (Math.abs(cx) < 3 && Math.abs(cz) < 3) { i--; continue; }
+        if (this.isInSpawnSafe(cx, cz)) { i--; continue; }
 
         const radius = randInt(3, 6);
         const blobby = 0.55 + Math.random() * 0.25;
 
         for (let x = cx - radius; x <= cx + radius; x++) {
           for (let z = cz - radius; z <= cz + radius; z++) {
+            if (this.isInSpawnSafe(x, z)) continue;
+
             const dx = x - cx;
             const dz = z - cz;
             const dist = Math.sqrt(dx * dx + dz * dz);
@@ -465,7 +468,7 @@
       while (placedTrees < treeCount) {
         const x = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
         const z = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
-        if (Math.abs(x) < 3 && Math.abs(z) < 3) continue;
+        if (this.isInSpawnSafe(x, z, 6)) continue;
         const k = keyOf(x, z);
         const t = this.grid[k];
         if (!t || t.type === "water" || t.prop || t.building) continue;
@@ -477,7 +480,7 @@
       while (placedRocks < rockCount) {
         const x = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
         const z = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
-        if (Math.abs(x) < 3 && Math.abs(z) < 3) continue;
+        if (this.isInSpawnSafe(x, z, 6)) continue;
         const k = keyOf(x, z);
         const t = this.grid[k];
         if (!t || t.type === "water" || t.prop || t.building) continue;
@@ -502,6 +505,7 @@
       while (placedAnimals < animalCount) {
         const x = randInt(-this.WORLD_SIZE / 2 + 4, this.WORLD_SIZE / 2 - 4);
         const z = randInt(-this.WORLD_SIZE / 2 + 4, this.WORLD_SIZE / 2 - 4);
+        if (this.isInSpawnSafe(x, z, 6)) continue;
         const k = keyOf(x, z);
         const t = this.grid[k];
         if (!t || t.type === "water" || t.prop || t.building) continue;
@@ -519,7 +523,7 @@
       while (t < addTrees) {
         const x = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
         const z = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
-        if (Math.abs(x) < 3 && Math.abs(z) < 3) continue;
+        if (this.isInSpawnSafe(x, z, 6)) continue;
         const k = keyOf(x, z);
         const tile = this.grid[k];
         if (!tile || tile.type === "water" || tile.prop || tile.building) continue;
@@ -531,7 +535,7 @@
       while (r < addRocks) {
         const x = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
         const z = randInt(-this.WORLD_SIZE / 2 + 1, this.WORLD_SIZE / 2 - 1);
-        if (Math.abs(x) < 3 && Math.abs(z) < 3) continue;
+        if (this.isInSpawnSafe(x, z, 6)) continue;
         const k = keyOf(x, z);
         const tile = this.grid[k];
         if (!tile || tile.type === "water" || tile.prop || tile.building) continue;
@@ -544,6 +548,7 @@
         while (tries < 60) {
           const x = randInt(-this.WORLD_SIZE / 2 + 4, this.WORLD_SIZE / 2 - 4);
           const z = randInt(-this.WORLD_SIZE / 2 + 4, this.WORLD_SIZE / 2 - 4);
+          if (this.isInSpawnSafe(x, z, 6)) { tries++; continue; }
           const k = keyOf(x, z);
           const tile = this.grid[k];
           if (tile && tile.type !== "water" && !tile.prop && !tile.building) {
@@ -575,8 +580,8 @@
     async callGemini(prompt) {
       if (this.geminiBusy) return null;
       if (!apiKey) {
-          this.showText(window.innerWidth / 2, window.innerHeight / 2, "NO API KEY", "#ff0000");
-          return null;
+        this.showText(window.innerWidth / 2, window.innerHeight / 2, "NO API KEY", "#ff0000");
+        return null;
       }
       this.geminiBusy = true;
       try {
@@ -650,6 +655,9 @@
       this.mc.mesh = group;
       this.mc.legs = [lLeg, rLeg];
       this.mc.pickaxe = pickGroup;
+
+      // Start at spawn
+      this.mc.mesh.position.set(this.SPAWN_X, 0, this.SPAWN_Z);
     },
 
     // ===================== GROUND =====================
@@ -1249,11 +1257,6 @@
     },
 
     getZombieTypeForNight(night, idx) {
-      // Demo interpretation:
-      // Night 1-2: normal only
-      // Night 3: brute introduced
-      // Night 4: ranged introduced
-      // Night 5: mixed harder
       if (night <= 2) return "normal";
       if (night === 3) return (idx % 3 === 2) ? "brute" : "normal";
       if (night === 4) return (idx % 3 === 2) ? "ranged" : (idx % 7 === 6 ? "brute" : "normal");
@@ -1284,8 +1287,7 @@
       const safeRadius = 16;
       const triesMax = 200;
 
-      const corePos = this.coreTile?.building?.mesh?.position ?? new THREE.Vector3(0, 0, 0);
-      const playerPos = this.mc.mesh?.position ?? new THREE.Vector3(0, 0, 0);
+      const playerPos = this.mc.mesh?.position ?? new THREE.Vector3(this.SPAWN_X, 0, this.SPAWN_Z);
 
       const min = -Math.floor(this.WORLD_SIZE / 2) + 1;
       const max = Math.floor(this.WORLD_SIZE / 2) - 1;
@@ -1303,7 +1305,6 @@
         if (!t || t.type === "water" || (t.building && !t.walkable)) continue;
 
         const p = new THREE.Vector3(x, 0, z);
-        if (p.distanceTo(corePos) < safeRadius) continue;
         if (p.distanceTo(playerPos) < safeRadius) continue;
 
         return { x, z };
@@ -1315,7 +1316,6 @@
     startNightWave(night) {
       this.spawnIndexThisNight = 0;
 
-      // Night 5 triggers boss phase AFTER wave is fully spawned and cleared
       if (night === this.MAX_NIGHTS) this.awaitingBoss = true;
 
       const base = randInt(this.N1_MIN, this.N1_MAX);
@@ -1328,8 +1328,8 @@
 
       const extra =
         night === 3 ? "New zombie: BRUTE" :
-        night === 4 ? "New zombie: RANGED" :
-        night === 5 ? "Final Night. Survive." : "";
+          night === 4 ? "New zombie: RANGED" :
+            night === 5 ? "Final Night. Survive." : "";
 
       this.showBanner(`NIGHT ${night}`, extra);
     },
@@ -1431,7 +1431,6 @@
       const try2 = from.clone().add(right.clone().multiplyScalar(0.65));
       if (!this.isBlocked(try2.x, try2.z)) return right.normalize();
 
-      // tiny jitter fallback to unstick sometimes
       const j = new THREE.Vector3((Math.random() - 0.5) * 0.6, 0, (Math.random() - 0.5) * 0.6);
       const try3 = from.clone().add(j);
       if (!this.isBlocked(try3.x, try3.z)) return j.normalize();
@@ -1550,7 +1549,6 @@
 
       let mesh;
 
-      // ZOMBIES
       if (["normal", "brute", "ranged", "mutant"].includes(type)) {
         mesh = new THREE.Group();
 
@@ -1602,9 +1600,7 @@
         }
 
         mesh.scale.setScalar(stats.scale || 1);
-      }
-      // KNIGHT
-      else if (type === "knight") {
+      } else if (type === "knight") {
         mesh = new THREE.Group();
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), new THREE.MeshStandardMaterial({ color: 0xbdc3c7, roughness: 0.6, metalness: 0.2 }));
         body.position.y = 0.7;
@@ -1614,9 +1610,7 @@
         sword.position.set(0.4, 0.8, 0.3);
         sword.rotation.x = Math.PI / 4;
         mesh.add(body, head, sword);
-      }
-      // fallback
-      else {
+      } else {
         mesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1, 0.5), new THREE.MeshStandardMaterial({ color: stats.color, roughness: 0.85 }));
       }
 
@@ -1712,13 +1706,11 @@
     animate() {
       requestAnimationFrame(() => this.animate());
 
-      // still render when paused
       if (!this.active) {
         this.renderer.render(this.scene, this.camera);
         return;
       }
 
-      // pause gameplay during story overlay
       if (this.story.active) {
         this.renderer.render(this.scene, this.camera);
         return;
@@ -1727,7 +1719,6 @@
       const dt = 0.016;
       const time = Date.now() / 1000;
 
-      // Day/night timer
       this.cycleTimer -= dt;
 
       const prog = this.isNight
@@ -1747,16 +1738,13 @@
       this.mainLight.position.set(this.sun.position.x, this.sun.position.y + 10, this.sun.position.z);
       this.mainLight.intensity = this.isNight ? 0.22 : 1.25;
 
-      // Transitions
       if (this.cycleTimer <= 0) {
         this.isNight = !this.isNight;
         this.cycleTimer = this.isNight ? this.NIGHT_DURATION : this.DAY_DURATION;
 
         if (this.isNight) {
-          // Start a wave
           this.startNightWave(this.dayCount);
         } else {
-          // Day begins
           this.dayCount++;
           this.refreshDayResources();
           this.ui.waveInfo.style.display = "none";
@@ -1766,7 +1754,6 @@
         this.ui.label.style.color = this.isNight ? "#ff6b81" : "#f1c40f";
       }
 
-      // Spawn enemies (night-only spawn, but they can remain into day)
       if (this.isNight && this.spawnQueue > 0 && time > this.nextSpawnTime) {
         const night = this.dayCount;
         const subType = this.getZombieTypeForNight(night, this.spawnIndexThisNight);
@@ -1781,7 +1768,6 @@
         this.nextSpawnTime = time + this.getSpawnDelay(night);
       }
 
-      // Boss condition: after night 5 wave fully spawned AND all enemies cleared
       if (this.awaitingBoss && !this.bossSpawned && !this.bossDefeated) {
         if (this.spawnQueue <= 0 && this.enemiesRemaining() === 0) {
           this.spawnMutantBoss();
@@ -1808,7 +1794,7 @@
         }
       }
 
-      // Water drink
+      // Water drink (nearby)
       if (this.mc.mesh) {
         const px = Math.round(this.mc.mesh.position.x);
         const pz = Math.round(this.mc.mesh.position.z);
@@ -1828,23 +1814,31 @@
         }
       }
 
-      // Player death check
+      // Player death check (ONLY real game over condition)
       if (this.mc.hp <= 0) this.gameOver();
 
-      // Core death check
+      // ✅ Core can exist but NOT game over
       if (this.coreTile?.building && this.coreTile.building.hp <= 0) {
-        this.showBanner("CORE DESTROYED", "Game Over.");
-        this.gameOver();
+        this.showBanner("CORE DESTROYED", "…but you can still survive.");
       }
 
-      // Update UI bars
+      // UI bars
       this.ui.hpFill.style.width = Math.max(0, this.mc.hp) + "%";
       this.ui.hungerFill.style.width = Math.max(0, this.mc.hunger) + "%";
       this.ui.thirstFill.style.width = Math.max(0, this.mc.thirst) + "%";
 
-      // Camera follow
+      // Camera follow + zoom smoothing
       if (this.mc.mesh) {
-        const targetCam = new THREE.Vector3(this.mc.mesh.position.x + 15, 15, this.mc.mesh.position.z + 15);
+        const isMobile = window.innerWidth < 850;
+        const off = isMobile ? 12 : 15;
+        const h = isMobile ? 13 : 15;
+
+        const targetCam = new THREE.Vector3(
+          this.mc.mesh.position.x + off,
+          h,
+          this.mc.mesh.position.z + off
+        );
+
         this.camera.position.lerp(targetCam, 0.1);
         this.camera.zoom = THREE.MathUtils.lerp(this.camera.zoom, this.targetZoom, 0.1);
         this.camera.updateProjectionMatrix();
@@ -1947,7 +1941,6 @@
       for (let i = this.entities.length - 1; i >= 0; i--) {
         const e = this.entities[i];
 
-        // death
         if (e.hp <= 0) {
           const px = e.mesh.position.x;
           const pz = e.mesh.position.z;
@@ -1964,7 +1957,6 @@
           continue;
         }
 
-        // animals wander
         if (e.type === "animal") {
           if (time > e.nextMove) {
             const angle = Math.random() * Math.PI * 2;
@@ -1974,14 +1966,10 @@
           continue;
         }
 
-        // target selection
-        let targetPos = this.coreTile?.building?.mesh?.position ?? this.mc.mesh?.position;
-        let targetKind = "core";
-
-        if (this.mc.mesh && this.mc.mesh.position.distanceTo(e.mesh.position) < 8) {
-          targetPos = this.mc.mesh.position;
-          targetKind = "player";
-        }
+        // ✅ Objective is PLAYER
+        let targetPos = this.mc.mesh?.position ?? this.coreTile?.building?.mesh?.position;
+        let targetKind = this.mc.mesh ? "player" : "core";
+        if (!targetPos) continue;
 
         // player units target enemies
         if (e.team === "player") {
@@ -1992,9 +1980,7 @@
           }
         }
 
-        if (!targetPos) continue;
-
-        // ===== ranged shooting =====
+        // ranged shooting
         if (e.team === "enemy" && e.ranged) {
           e.rangedCooldown -= dt;
           const shootRange = 10;
@@ -2006,7 +1992,7 @@
           }
         }
 
-        // ===== mutant stomp =====
+        // mutant stomp
         if (e.team === "enemy" && e.boss) {
           e.abilityCooldown = (e.abilityCooldown ?? 0) - dt;
           const rage = (e.hp <= (e.maxHp * 0.5));
@@ -2024,15 +2010,12 @@
           }
         }
 
-        // movement / attack
         const dist = e.mesh.position.distanceTo(targetPos);
 
-        // simple animation
         const moving = dist > 1.6;
         const wobble = Math.sin((time + e.animSeed) * (moving ? 12 : 5)) * (moving ? 0.12 : 0.04);
         e.mesh.position.y = wobble;
 
-        // move
         if (dist > 1.6) {
           const steer = this.steerMove(e.mesh.position, targetPos);
           if (steer.length() > 0) {
@@ -2042,7 +2025,6 @@
             e.mesh.rotation.y = Math.atan2(dx, dz);
           }
         } else {
-          // attack
           if (e.cooldown <= 0) {
             if (e.team === "enemy") {
               if (targetKind === "player") {
@@ -2070,7 +2052,6 @@
         if (e.cooldown > 0) e.cooldown -= dt;
       }
 
-      // Timer UI
       const mm = Math.max(0, Math.floor(this.cycleTimer / 60));
       const ss = Math.max(0, Math.floor(this.cycleTimer % 60)).toString().padStart(2, "0");
       this.ui.timer.innerText = `${mm.toString().padStart(2, "0")}:${ss}`;
