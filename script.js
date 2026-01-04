@@ -56,8 +56,10 @@
     bossSpawned: false,
     bossDefeated: false,
 
-    // Camera zoom - UPDATED FOR MOBILE
-    targetZoom: window.innerWidth < 850 ? 0.75 : 1.2, // ZOOOM OUT on phone
+    // === ZOOM SETTINGS ===
+    // 1.4 = Closer to MC (Mobile), 1.2 = Standard (PC)
+    targetZoom: window.innerWidth < 850 ? 1.4 : 1.2, 
+    lastTouchDist: 0, // For pinch-to-zoom
 
     worldBuilt: false,
 
@@ -109,7 +111,9 @@
       this.camera = new THREE.OrthographicCamera(-14 * aspect, 14 * aspect, 14, -14, 1, 1000);
       this.camera.position.set(20, 20, 20);
       this.camera.lookAt(0, 0, 0);
-      this.camera.zoom = this.targetZoom; // Apply zoom immediately
+      
+      // Apply initial zoom
+      this.camera.zoom = this.targetZoom;
       this.camera.updateProjectionMatrix();
 
       this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -159,40 +163,68 @@
       this.renderer.domElement.addEventListener("pointermove", e => this.onPointerMove(e));
       this.renderer.domElement.addEventListener("pointerup", e => this.onPointerUp(e));
 
-      // Touch events (FIX FOR PHONE)
+      // --- PINCH TO ZOOM & TOUCH LOGIC ---
       this.renderer.domElement.addEventListener("touchstart", e => {
           if(e.target === this.renderer.domElement) e.preventDefault();
+          
+          // PINCH START
+          if (e.touches.length === 2) {
+            const dx = e.touches[0].pageX - e.touches[1].pageX;
+            const dy = e.touches[0].pageY - e.touches[1].pageY;
+            this.lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+            return;
+          }
+
           const touch = e.changedTouches[0];
-          // Determine if it's a tap or start of drag
           this.isDragging = false;
           this.lastMouse = { x: touch.clientX, y: touch.clientY };
-          // Update mouse pos for raycaster immediately
           this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
           this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
       }, { passive: false });
 
       this.renderer.domElement.addEventListener("touchmove", e => {
           if(e.target === this.renderer.domElement) e.preventDefault();
+          
+          // PINCH MOVE (ZOOM)
+          if (e.touches.length === 2) {
+            const dx = e.touches[0].pageX - e.touches[1].pageX;
+            const dy = e.touches[0].pageY - e.touches[1].pageY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // Calculate change in distance
+            const delta = dist - this.lastTouchDist;
+            
+            // Adjust Zoom (Sensitivity: 0.005)
+            this.targetZoom = clamp(this.targetZoom + delta * 0.005, 0.5, 3.0);
+            
+            this.lastTouchDist = dist;
+            return; 
+          }
+
           this.isDragging = true;
       }, { passive: false });
 
       this.renderer.domElement.addEventListener("touchend", e => {
           if(e.target === this.renderer.domElement) e.preventDefault();
+          
+          // Ignore pinch lift-off
+          if (e.touches.length > 0) return;
+
           if (!this.isDragging) {
-              // Simulate a click
               const touch = e.changedTouches[0];
               this.onClick({
                   clientX: touch.clientX,
                   clientY: touch.clientY,
-                  button: 0 // Left click
+                  button: 0 
               });
           }
       }, { passive: false });
 
+      // Wheel Zoom (PC)
       window.addEventListener("wheel", e => {
         if (e.ctrlKey) e.preventDefault();
         e.preventDefault();
-        this.targetZoom = clamp(this.targetZoom - e.deltaY * 0.002, 0.55, 2.5);
+        this.targetZoom = clamp(this.targetZoom - e.deltaY * 0.002, 0.55, 3.0);
       }, { passive: false });
 
       window.addEventListener("resize", () => this.onResize());
@@ -209,7 +241,6 @@
         const m = btn.dataset.mode;
         if (!m) return;
         btn.addEventListener("click", () => this.setMode(m));
-        // Add touch support for UI buttons specifically
         btn.addEventListener("touchend", (e) => {
              e.preventDefault(); 
              this.setMode(m);
@@ -223,12 +254,10 @@
         this.ui.startScreen.style.display = "none";
         this.active = true;
 
-        // Force Fullscreen on Start
         const el = document.documentElement;
         if(el.requestFullscreen) el.requestFullscreen().catch(()=>{});
         else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 
-        // PROLOGUE
         this.showStory([
           "…Where am I?",
           "The air is cold. Too quiet.",
