@@ -695,30 +695,62 @@
     },
 
     createWater(x, z) {
-      const tile = this.grid[keyOf(x, z)];
-      if (!tile || tile.type === "water" || tile.building || tile.prop) return;
+  const tile = this.grid[keyOf(x, z)];
+  if (!tile || tile.type === "water" || tile.building || tile.prop) return;
 
-      const hole = new THREE.Mesh(
-        new THREE.BoxGeometry(1.02, 0.5, 1.02),
-        new THREE.MeshStandardMaterial({ color: 0x071118, roughness: 0.95 })
-      );
-      hole.position.set(x, -0.70, z);
-      hole.receiveShadow = true;
-      this.scene.add(hole);
+  // --- PIT WALLS (dirt) ---
+  const dirtMat = new THREE.MeshStandardMaterial({
+    color: 0x3b2a1a,
+    roughness: 1.0
+  });
 
-      const surface = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.02, 1.02, 6, 6),
-        new THREE.MeshStandardMaterial({ color: 0x2ea8ff, transparent: true, opacity: 0.62, roughness: 0.15 })
-      );
-      surface.rotation.x = -Math.PI / 2;
-      surface.position.set(x, -0.52, z);
-      surface.receiveShadow = true;
-      this.scene.add(surface);
+  const pit = new THREE.Mesh(
+    new THREE.BoxGeometry(1.06, 0.9, 1.06),
+    dirtMat
+  );
+  // top of pit flush with ground
+  pit.position.set(x, -0.45, z);
+  pit.receiveShadow = true;
+  pit.castShadow = false;
+  this.scene.add(pit);
 
-      tile.type = "water";
-      tile.walkable = false;
-      tile.waterMesh = { hole, surface };
-    },
+  // --- DARK BOTTOM ---
+  const bottom = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.02, 1.02),
+    new THREE.MeshStandardMaterial({ color: 0x071118, roughness: 0.95 })
+  );
+  bottom.rotation.x = -Math.PI / 2;
+  bottom.position.set(x, -0.90, z);
+  bottom.receiveShadow = true;
+  this.scene.add(bottom);
+
+  // --- WATER SURFACE (visible, slightly emissive) ---
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x2ea8ff,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.08,
+    metalness: 0.05,
+    emissive: 0x0b2a3a,
+    emissiveIntensity: 0.35
+  });
+
+  const surface = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.02, 1.02, 6, 6),
+    waterMat
+  );
+  surface.rotation.x = -Math.PI / 2;
+  surface.position.set(x, -0.26, z);
+  surface.receiveShadow = true;
+  this.scene.add(surface);
+
+  tile.type = "water";
+  tile.walkable = false;
+  tile.waterMesh = { pit, bottom, surface };
+
+  // IMPORTANT: ensure this tile is tracked
+  this.waterTiles.add(keyOf(x, z));
+}
 
     // ===================== PROPS / ANIMALS =====================
     spawnAnimal(x, z) {
@@ -1121,13 +1153,16 @@
 
       if (b.type === "core") html = `<button class="insp-btn build-action" onclick="window.game.healCore()">⬆️ HEAL CORE<span>100W</span></button>` + html;
 
-      if (b.type === "factory") {
-        html =
-          `<button class="insp-btn build-action" onclick="window.game.setMode('wall'); window.game.closeInspector()">🧱 WALL<span>20W</span></button>
-           <button class="insp-btn build-action" onclick="window.game.setMode('spikes'); window.game.closeInspector()">🗡️ SPIKES<span>20S</span></button>
-           <button class="insp-btn combat-action" onclick="window.game.setMode('place-archer'); window.game.closeInspector()">🏰 ARCHER<span>Kit Req</span></button>
-           <button class="insp-btn combat-action" onclick="window.game.setMode('place-cannon'); window.game.closeInspector()">💥 CANNON<span>Kit Req</span></button>` + html;
-      }
+if (b.type === "factory") {
+  html =
+    `<button class="insp-btn build-action" onclick="window.game.setMode('wall'); window.game.closeInspector()">🧱 WALL<span>20W</span></button>
+     <button class="insp-btn build-action" onclick="window.game.setMode('spikes'); window.game.closeInspector()">🗡️ SPIKES<span>20S</span></button>
+     <button class="insp-btn combat-action" onclick="window.game.setMode('place-archer'); window.game.closeInspector()">🏰 ARCHER<span>Kit Req</span></button>
+     <button class="insp-btn combat-action" onclick="window.game.setMode('place-cannon'); window.game.closeInspector()">💥 CANNON<span>Kit Req</span></button>
+     <button class="insp-btn craft-action" onclick="window.game.craftWaterFilter()">🧪 WATER FILTER<span>30W 10S</span></button>
+     <button class="insp-btn build-action" onclick="window.game.upgradeToAdvancedFactory()">⬆️ ADVANCED FACTORY<span>90💎</span></button>`
+    + html;
+}
 
       if (b.type === "lumber" || b.type === "quarry") html = `<button class="insp-btn" onclick="window.game.hireWorker()">👷 HIRE (${b.workers}/${b.maxWorkers})<span>50W</span></button>` + html;
 
