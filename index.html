@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Survival Island</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+  <div id="rotate-message"><h1>🔄 PLEASE ROTATE YOUR PHONE</h1></div>
+
+  <div id="start-screen">
+    <div class="start-panel">
+      <div class="game-title">SURVIVAL ISLAND</div>
+      <div class="game-subtitle">Build. Survive. Hold the line at night.</div>
+
+      <div class="tutorial-grid">
+        <div class="tutorial-card">
+          <div class="t-title">Move & Gather</div>
+          <div class="t-body">Tap empty ground to move. Tap trees/rocks/crystals in Gather mode to mine.</div>
+        </div>
+        <div class="tutorial-card">
+          <div class="t-title">Build Daytime</div>
+          <div class="t-body">Use the bottom menu to place buildings. Lumber/Quarry need workers to generate resources.</div>
+        </div>
+        <div class="tutorial-card">
+          <div class="t-title">Defend Night</div>
+          <div class="t-body">At night, enemies attack. Craft kits → place Archer/Cannon from the Factory inspector.</div>
+        </div>
+      </div>
+
+      <div class="start-actions">
+        <button id="btn-start">START</button>
+        <button id="btn-how">HOW TO PLAY</button>
+      </div>
+
+      <div class="start-foot">Tip: Campfire heals you when close. Don’t ignore thirst.</div>
+    </div>
+  </div>
+
+  <div id="howto-modal">
+    <div class="howto-panel">
+      <div class="howto-title">HOW TO PLAY</div>
+      <div class="howto-text">
+        • Gather Mode: tap trees/rocks/crystals to collect materials.<br/>
+        • Build: place Core (free), then Lumber/Quarry to automate, then Blacksmith → Barracks/Factory.<br/>
+        • Craft: Blacksmith crafts Archer/Cannon kits.<br/>
+        • Place defenses: Factory lets you place Wall/Spikes + deploy Archer/Cannon using kits.<br/>
+        • Survive: hunger & thirst drain over time; campfire heals; nights bring waves.
+      </div>
+      <button id="btn-close-how">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="ui-layer">
+    <div id="top-left-panel">
+      <div class="res-group">
+        <div>🪵 <span id="wood">40</span></div>
+        <div>🪨 <span id="stone">20</span></div>
+        <div class="food-count">🍖 <span id="food">0</span></div>
+        <div class="crystal-count">💎 <span id="crystal">0</span></div>
+        <div class="item-count">🏹 <span id="inv-archer">0</span></div>
+        <div class="item-count">💣 <span id="inv-cannon">0</span></div>
+      </div>
+
+      <div id="survival-stats">
+        <div class="stat-row">
+          <span class="stat-icon">❤️</span>
+          <div class="stat-bar-container">
+            <div id="hp-fill" class="stat-fill" style="width:100%"></div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon">🍗</span>
+          <div class="stat-bar-container">
+            <div id="hunger-fill" class="stat-fill" style="width:100%"></div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-icon">💧</span>
+          <div class="stat-bar-container">
+            <div id="thirst-fill" class="stat-fill" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="top-right-panel">
+      <div id="clock-display">
+        <div id="cycle-label">DAY 1</div>
+        <div id="timer-text">06:00</div>
+        <div id="wave-info">WAVE: 0 LEFT</div>
+      </div>
+      <button id="btn-skip" class="action-btn">SKIP DAY >></button>
+      <button id="btn-advisor" class="action-btn">💡 Advisor</button>
+      <button id="btn-summon" class="action-btn">SUMMON ANCIENT 👹</button>
+    </div>
+
+    <div id="inspector-panel">
+      <div id="inspector-title">BUILDING</div>
+      <div id="inspector-stats">Stats here</div>
+      <div class="insp-btn-group" id="inspector-buttons"></div>
+    </div>
+
+    <div class="menu-container" id="main-menu-container">
+      <div id="build-menu">
+
+        <div class="menu-section">
+          <div class="build-btn active" id="btn-gather" data-mode="gather">
+            <span class="icon">🖐️</span><span class="label">Gather</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="build-btn" id="btn-campfire" data-mode="campfire">
+            <span class="icon">🔥</span><span class="label">Fire</span><span class="cost">20W</span>
+          </div>
+          <div class="build-btn" id="btn-plantation" data-mode="plantation">
+            <span class="icon">🌿</span><span class="label">Farm</span><span class="cost">40W</span>
+          </div>
+          <div class="build-btn" id="btn-core" data-mode="core">
+            <span class="icon">👑</span><span class="label">Base</span><span class="cost" style="color:#2ecc71">FREE</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="build-btn" id="btn-lumber" data-mode="lumber">
+            <span class="icon">🪚</span><span class="label">Saw</span><span class="cost">75W</span>
+          </div>
+          <div class="build-btn" id="btn-quarry" data-mode="quarry">
+            <span class="icon">⛏️</span><span class="label">Mine</span><span class="cost">75W</span>
+          </div>
+          <div class="build-btn" id="btn-blacksmith" data-mode="blacksmith">
+            <span class="icon">⚒️</span><span class="label">Forge</span><span class="cost">120W</span>
+          </div>
+          <div class="build-btn" id="btn-barracks" data-mode="barracks">
+            <span class="icon">🛡️</span><span class="label">Army</span><span class="cost">150W</span>
+          </div>
+
+          <!-- ✅ FIXED: factory button kept same, but structure is now correct -->
+          <div class="build-btn factory-btn" id="btn-factory" data-mode="factory">
+            <span class="icon">🏭</span><span class="label">Fact</span>
+            <span class="cost" style="color:#00d2ff">160W 5C</span>
+          </div>
+        </div>
+
+        <div class="menu-section">
+          <div class="build-btn" id="btn-demolish" data-mode="demolish">
+            <span class="icon">❌</span><span class="label">Clear</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="fx-container"></div>
+
+  <div id="game-over">
+    <h1>SURVIVOR DEAD</h1>
+    <button class="btn-restart" onclick="location.reload()">TRY AGAIN</button>
+  </div>
+
+  <div id="victory">
+    <h1>ANCIENT ONE DEFEATED</h1>
+    <button class="btn-restart" onclick="location.reload()">LEGENDARY</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
